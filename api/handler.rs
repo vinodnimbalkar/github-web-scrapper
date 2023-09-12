@@ -1,6 +1,7 @@
 use reqwest::blocking;
 use scraper::{Html, Selector};
-use std::fmt::Display;
+use serde_json::json;
+use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
 
 #[derive(Debug, Default)]
 struct Contribution {
@@ -12,10 +13,42 @@ struct Contribution {
     level: u32,
 }
 
-fn main() {
-    let api = "https://github.com/users/vinodnimbalkar/contributions?from=2022-12-01&to=2022-12-31";
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    run(handler).await
+}
+
+pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
+    let params = req.uri().path();
+    print!("{:?}", params);
+    let user = String::from("vinodnimbalkar");
+    let year = 2022;
+    let html = get_contributions(user, year);
+    let _result = parse_contributions(html);
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/json")
+        .body(
+            json!({
+              "message": "你好，世界"
+            })
+            .to_string()
+            .into(),
+        )?)
+    // .body(json!(result).to_string().into())?)
+}
+
+fn get_contributions(user: String, year: u32) -> String {
+    let api = format!(
+        "https://github.com/users/{}/contributions?from={}-12-01&to={}-12-31",
+        user, year, year
+    );
     let response = blocking::get(api).unwrap().text().unwrap();
-    let document = Html::parse_document(&response);
+    response
+}
+
+fn parse_contributions(html: String) -> Vec<Vec<Contribution>> {
+    let document = Html::parse_document(&html);
     let rows_selector = Selector::parse("tbody > tr").unwrap();
     let days_selector = Selector::parse("td:not(.ContributionCalendar-label)").unwrap();
 
@@ -54,5 +87,5 @@ fn main() {
 
         contributions.push(current_row);
     }
-    print!("{:#?}", contributions);
+    contributions
 }
