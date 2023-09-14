@@ -7,7 +7,7 @@
     git clone https://github.com/vinodnimbalkar/github-web-scrapper.git
 
 ### 2. Change Directory:  :open_file_folder:
-    cd github-web-screpper
+    cd github-web-scrapper
 
 ### 3. Run the development server:
 
