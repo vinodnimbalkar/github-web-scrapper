@@ -1,9 +1,11 @@
-use reqwest::blocking;
+use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
+use reqwest::Client;
 use scraper::{Html, Selector};
-use serde_json::json;
-use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::net::SocketAddr;
 
-#[derive(Debug, Default)]
+#[derive(Serialize)]
 struct Contribution {
     count: u32,
     name: String,
@@ -12,38 +14,48 @@ struct Contribution {
     year: u32,
     level: u32,
 }
+impl Contribution {
+    fn default() -> Contribution {
+        todo!()
+    }
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    run(handler).await
+async fn main() {
+    // initialize tracing
+    tracing_subscriber::fmt::init();
+
+    // build our application with a route
+    let app = Router::new()
+        // `GET /` goes to `handler`
+        .route("/:username/:year", get(handler));
+
+    // run our app with hyper
+    // `axum::Server` is a re-export of `hyper::Server`
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    tracing::debug!("listening on {}", addr);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
-pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
-    let params = req.uri().path();
-    print!("{:?}", params);
-    let user = String::from("vinodnimbalkar");
-    let year = 2022;
-    let html = get_contributions(user, year);
-    let _result = parse_contributions(html);
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "application/json")
-        .body(
-            json!({
-              "message": "你好，世界"
-            })
-            .to_string()
-            .into(),
-        )?)
-    // .body(json!(result).to_string().into())?)
+pub async fn handler(Path((username, year)): Path<(String, u32)>) -> (StatusCode, Json<Value>) {
+    let html = get_contributions(username, year).await;
+    let result = parse_contributions(html);
+    // Convert result to a JSON value
+    let json_result = json!(result);
+    (StatusCode::OK, Json(json_result))
 }
 
-fn get_contributions(user: String, year: u32) -> String {
+async fn get_contributions(user: String, year: u32) -> String {
     let api = format!(
         "https://github.com/users/{}/contributions?from={}-12-01&to={}-12-31",
         user, year, year
     );
-    let response = blocking::get(api).unwrap().text().unwrap();
+    // Create an async client
+    let client = Client::new();
+    let response = client.get(&api).send().await.unwrap().text().await.unwrap();
     response
 }
 

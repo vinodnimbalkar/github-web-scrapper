@@ -8,11 +8,10 @@ edition = "2021"
 [dependencies]
 reqwest = {version = "0.11", features = ["blocking"]}
 scraper = "0.12.0"
-tokio = { version = "1", features = ["macros"] }
-serde_json = { version = "1", features = ["raw_value"] }
-vercel_runtime = { version = "1.0.2" }
+tokio = { version = "1.29", features = ["full"] }
+serde_json = "1"
+axum = "0.6.20"
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features=["env-filter", "json"]}
 
-# Each handler has to be specified as [[bin]]
-[[bin]]
-name = "handler"
-path = "api/handler.rs"
