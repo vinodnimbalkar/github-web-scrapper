@@ -1,8 +1,10 @@
 use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
+use dotenv::dotenv;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::env;
 use std::net::SocketAddr;
 
 #[derive(Serialize)]
@@ -34,7 +36,12 @@ async fn main() {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    dotenv().ok();
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .expect("Invalid PORT");
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
