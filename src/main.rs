@@ -27,6 +27,8 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
+        // `GET /` goes to `root`
+        .route("/", get(root))
         // `GET /` goes to `handler`
         .route("/:username/:year", get(handler));
 
@@ -38,6 +40,11 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+// basic handler that responds with a static string
+async fn root() -> &'static str {
+    "Hello, World!"
 }
 
 pub async fn handler(Path((username, year)): Path<(String, u32)>) -> (StatusCode, Json<Value>) {
