@@ -1,9 +1,11 @@
+use axum::http::HeaderMap;
+use axum::response::IntoResponse;
 use axum::{extract::Path, http::StatusCode, routing::get, Json, Router};
 use dotenv::dotenv;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::json;
 use std::env;
 use std::net::SocketAddr;
 
@@ -54,12 +56,17 @@ async fn root() -> &'static str {
     "Hello, World!"
 }
 
-pub async fn handler(Path((username, year)): Path<(String, u32)>) -> (StatusCode, Json<Value>) {
+pub async fn handler(Path((username, year)): Path<(String, u32)>) -> impl IntoResponse {
     let html = get_contributions(username, year).await;
     let result = parse_contributions(html);
+    // set header as content type application/json
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "application/json".parse().unwrap());
+    headers.insert("Cache-Control", "max-age=86400".parse().unwrap());
+    headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
     // Convert result to a JSON value
     let json_result = json!(result);
-    (StatusCode::OK, Json(json_result))
+    (StatusCode::OK, headers, Json(json_result))
 }
 
 async fn get_contributions(user: String, year: u32) -> String {
