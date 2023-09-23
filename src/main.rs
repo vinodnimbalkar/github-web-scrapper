@@ -20,7 +20,14 @@ struct Contribution {
 }
 impl Contribution {
     fn default() -> Contribution {
-        todo!()
+        Contribution {
+            count: 0,
+            name: "".to_string(),
+            month: "".to_string(),
+            day: 0,
+            year: 0,
+            level: 0,
+        }
     }
 }
 
@@ -57,8 +64,8 @@ async fn root() -> &'static str {
 }
 
 pub async fn handler(Path((username, year)): Path<(String, u32)>) -> impl IntoResponse {
-    let html = get_contributions(username, year).await;
-    let result = parse_contributions(html);
+    let html = get_contributions(username, year).await.unwrap();
+    let result = parse_contributions(&html);
     // set header as content type application/json
     let mut headers = HeaderMap::new();
     headers.insert("Content-Type", "application/json".parse().unwrap());
@@ -69,7 +76,7 @@ pub async fn handler(Path((username, year)): Path<(String, u32)>) -> impl IntoRe
     (StatusCode::OK, headers, Json(json_result))
 }
 
-async fn get_contributions(user: String, year: u32) -> String {
+async fn get_contributions(user: String, year: u32) -> Result<String, reqwest::Error> {
     let api = format!(
         "https://github.com/users/{}/contributions?from={}-12-01&to={}-12-31",
         user, year, year
@@ -77,10 +84,10 @@ async fn get_contributions(user: String, year: u32) -> String {
     // Create an async client
     let client = Client::new();
     let response = client.get(&api).send().await.unwrap().text().await.unwrap();
-    response
+    Ok(response)
 }
 
-fn parse_contributions(html: String) -> Vec<Vec<Contribution>> {
+fn parse_contributions(html: &str) -> Vec<Vec<Contribution>> {
     let document = Html::parse_document(&html);
     let rows_selector = Selector::parse("tbody > tr").unwrap();
     let days_selector = Selector::parse("td:not(.ContributionCalendar-label)").unwrap();
@@ -93,22 +100,21 @@ fn parse_contributions(html: String) -> Vec<Vec<Contribution>> {
         let mut current_row = Vec::new();
 
         for day in days {
-            let data = day.text().collect::<Vec<_>>();
-            let data = data.first();
-            if let Some(data) = data {
-                let parts = data.split(" ");
-                let data: Vec<&str> = parts.collect();
-                if data.len() > 1 {
+            // let data = day.text().collect::<Vec<_>>();
+            // let data = data.first();
+            if let Some(data) = day.text().next() {
+                let parts: Vec<_> = data.split_whitespace().collect();
+                if parts.len() > 1 {
                     let contribution = Contribution {
-                        count: if data[0] == "No" {
+                        count: if parts[0] == "No" {
                             0
                         } else {
-                            data[0].parse().unwrap()
+                            parts[0].parse().unwrap()
                         },
-                        name: data[3].replace(',', ""),
-                        month: data[4].to_string(),
-                        day: data[5].replace(',', "").parse().unwrap(),
-                        year: data[6].parse().unwrap(),
+                        name: parts[3].replace(',', ""),
+                        month: parts[4].to_string(),
+                        day: parts[5].replace(',', "").parse().unwrap(),
+                        year: parts[6].parse().unwrap(),
                         level: day.value().attr("data-level").unwrap().parse().unwrap(),
                     };
                     current_row.push(contribution);
